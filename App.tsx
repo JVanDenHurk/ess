@@ -1,43 +1,119 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
-import * as Speech from 'expo-speech';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import axios from 'axios';
+import { Audio } from 'expo-av';
 
 interface SecretScript {
   text: string;
-  image_urls: string[];
 }
 
-import secretScripts from './assets/secret_scripts.json';
+interface SecretScripts {
+  [key: string]: SecretScript;
+}
+
+import secretScriptsData from './assets/secret_scripts.json';
 
 const DEFAULT_TEXT_SIZE = 18;
 
 const App = () => {
   const [number, setNumber] = useState('');
-  const [script, setScript] = useState<SecretScript>({ text: '', image_urls: [] });
+  const [script, setScript] = useState<SecretScript>({ text: ''});
   const [isPlaying, setIsPlaying] = useState(false);
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
+  const [audioUrl, setAudioUrl] = useState<string>('');
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
-  const handleGetScript = () => {
+  useEffect(() => {
+    return () => {
+      // Unload the sound when the component unmounts
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
+  const handleGetScript = async () => {
     Keyboard.dismiss();
     const num = parseInt(number, 10);
     if (num >= 1 && num <= 1232) {
-      setScript(secretScripts[num.toString()] || { text: 'There is no secret here. Did you enter the correct number?', image_urls: [] });
+      const fetchedScript: SecretScript = secretScriptsData[num.toString() as keyof typeof secretScriptsData];
+      setScript(fetchedScript || { text: 'There is no secret here. Did you enter the correct number?'});
+      // Call function to generate speech
+      try {
+        const url = await generateSpeech(fetchedScript.text);
+        setAudioUrl(url);
+      } catch (error) {
+        console.error('Error generating speech:', error);
+      }
     } else {
-      setScript({ text: 'There is no secret here. Did you enter the correct number?', image_urls: [] });
+      setScript({ text: 'There is no secret here. Did you enter the correct number?'});
     }
   };
 
-  const toggleSpeech = () => {
-    if (isPlaying) {
-      Speech.stop();
-      setIsPlaying(false);
-    } else {
-      Speech.speak(script.text, {
-        onDone: () => setIsPlaying(false),
-        onStopped: () => setIsPlaying(false),
+  const generateSpeech = async (text: string) => {
+    try {
+      const response = await axios.post('https://api.openai.com/v1/audio/speech', {
+        model: 'tts-1',
+        input: text,
+        voice: 'nova',
+        response_format: 'mp3',
+        speed: 1.0
+      }, {
+        headers: {
+          'Authorization': 'Bearer sk-proj-qqVWeRpEfu4He4IiU17FT3BlbkFJjyTw8xUqPSZEZuPNkBew', // Replace with your OpenAI API key
+          'Content-Type': 'application/json'
+        }
       });
+
+      const url = response.data.url;
+      console.log('Generated audio URL:', url);
+      setAudioUrl(url);
+      return url;
+    } catch (error) {
+      console.error('Error generating speech:', error);
+      throw error;
+    }
+  };
+
+  const playSpeech = async () => {
+    if (audioUrl) {
+      try {
+        const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
+        setSound(sound);
+        await sound.playAsync();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error('Error playing speech:', error);
+      }
+    } else {
+      console.error('No audio URL available');
+    }
+  };
+
+  const toggleSpeech = async () => {
+    console.log('Toggle Speech called');
+    if (isPlaying) {
+      console.log('Stopping speech');
+      setIsPlaying(false);
+      if (sound) {
+        await sound.stopAsync();
+      }
+    } else {
+      console.log('Playing speech');
       setIsPlaying(true);
+      if (script.text) {
+        try {
+          const url = await generateSpeech(script.text);
+          setAudioUrl(url);
+          await playSpeech();
+        } catch (error) {
+          console.error('Error playing speech:', error);
+          setIsPlaying(false);
+        }
+      } else {
+        console.error('No text available to speak');
+      }
     }
   };
 
