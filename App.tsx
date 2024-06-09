@@ -8,10 +8,6 @@ interface SecretScript {
   text: string;
 }
 
-interface SecretScripts {
-  [key: string]: SecretScript;
-}
-
 import secretScriptsData from './assets/secret_scripts.json';
 
 const DEFAULT_TEXT_SIZE = 18;
@@ -61,7 +57,7 @@ const App = () => {
         speed: 1.0
       }, {
         headers: {
-          'Authorization': 'Bearer sk-proj-qqVWeRpEfu4He4IiU17FT3BlbkFJjyTw8xUqPSZEZuPNkBew', // Replace with your OpenAI API key
+          'Authorization': 'Bearer '
           'Content-Type': 'application/json'
         }
       });
