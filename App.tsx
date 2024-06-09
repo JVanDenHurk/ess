@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, Image, TouchableOpacity, Keyboard } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import * as Speech from 'expo-speech';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
@@ -22,9 +22,9 @@ const App = () => {
     Keyboard.dismiss();
     const num = parseInt(number, 10);
     if (num >= 1 && num <= 1232) {
-      setScript(secretScripts[num.toString()] || { text: 'Invalid script number.', image_urls: [] });
+      setScript(secretScripts[num.toString()] || { text: 'There is no secret here. Did you enter the correct number?', image_urls: [] });
     } else {
-      setScript({ text: 'Invalid script number.', image_urls: [] });
+      setScript({ text: 'There is no secret here. Did you enter the correct number?', image_urls: [] });
     }
   };
 
@@ -41,64 +41,16 @@ const App = () => {
     }
   };
 
-  const resolveAssetPath = (url: string) => {
-    switch (url) {
-      case '/assets/icons/gem.png':
-        return require('./assets/icons/gem.png');
-      case '/assets/icons/yellow-marker.png':
-        return require('./assets/icons/yellow-marker.png');
-      case '/assets/icons/block.png':
-        return require('./assets/icons/block.png');
-      case '/assets/icons/damage.png':
-        return require('./assets/icons/damage.png');
-      case '/assets/icons/ether.png':
-        return require('./assets/icons/ether.png');
-      case '/assets/icons/green-marker.png':
-        return require('./assets/icons/green-marker.png');
-      case '/assets/icons/light.png':
-        return require('./assets/icons/light.png');
-      case '/assets/icons/luck-blank.png':
-        return require('./assets/icons/luck-blank.png');
-      case '/assets/icons/luck-x.png':
-        return require('./assets/icons/luck-x.png');
-      case '/assets/icons/night.png':
-        return require('./assets/icons/night.png');
-      case '/assets/icons/red-marker.png':
-        return require('./assets/icons/red-marker.png');
-      case '/assets/icons/start.png':
-        return require('./assets/icons/start.png');
-      case '/assets/icons/threat.png':
-        return require('./assets/icons/threat.png');
-      default:
-        return null;
-    }
-  };
-
-  const renderTextWithImages = (text: string) => {
-    const parts = text.split(/(\[ether\]|\[damage\]|\[gem\]|\[start\])/);
-
-    return parts.map((part, index) => {
-      if (part === '[ether]') {
-        return <Image key={index} source={resolveAssetPath('/assets/icons/ether.png')} style={styles.inlineImage} />;
-      }
-      if (part === '[gem]') {
-        return <Image key={index} source={resolveAssetPath('/assets/icons/gem.png')} style={styles.inlineImage} />;
-      }
-      if (part === '[damage]') {
-        return <Image key={index} source={resolveAssetPath('/assets/icons/damage.png')} style={styles.inlineImage} />;
-      }
-      if (part === '[start]') {
-        return <Image key={index} source={resolveAssetPath('/assets/icons/start.png')} style={styles.inlineImage} />;
-      }
-      return <Text key={index} style={[styles.scriptText, { fontSize: textSize }]}>{part}</Text>;
-    });
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scriptContainer}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}># {number}</Text>
+        </View>
         <View style={styles.textContainer}>
-          {renderTextWithImages(script.text)}
+          <Text style={[styles.scriptText, { fontSize: textSize }]}>
+            {script.text}
+          </Text>
         </View>
       </ScrollView>
       <View style={styles.fontSizeControls}>
@@ -124,7 +76,7 @@ const App = () => {
           placeholder="Enter the script number"
           value={number}
           onChangeText={setNumber}
-          onSubmitEditing={handleGetScript} // Search on enter key press
+          onSubmitEditing={handleGetScript}
         />
       </View>
       <Button title="Search" onPress={handleGetScript} color="black" />
@@ -162,6 +114,14 @@ const styles = StyleSheet.create({
   textContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  headerContainer: {
+    marginBottom: 20,
+  },
+  headerText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   scriptText: {
     lineHeight: 24,
