@@ -22,7 +22,6 @@ const App = () => {
 
   useEffect(() => {
     return () => {
-      // Unload the sound when the component unmounts
       if (sound) {
         sound.unloadAsync();
       }
@@ -35,7 +34,6 @@ const App = () => {
     if (num >= 1 && num <= 1232) {
       const fetchedScript: SecretScript = secretScriptsData[num.toString() as keyof typeof secretScriptsData];
       setScript(fetchedScript || { text: 'There is no secret here. Did you enter the correct number?'});
-      // Call function to generate speech
       try {
         const url = await generateSpeech(fetchedScript.text);
         setAudioUrl(url);
@@ -49,22 +47,12 @@ const App = () => {
 
   const generateSpeech = async (text: string) => {
     try {
-      const response = await axios.post('https://api.openai.com/v1/audio/speech', {
-        model: 'tts-1',
-        input: text,
-        voice: 'nova',
-        response_format: 'mp3',
-        speed: 1.0
-      }, {
-        headers: {
-          'Authorization': 'Bearer '
-          'Content-Type': 'application/json'
-        }
+      const response = await axios.post('http://localhost:5000/tts', {
+        text: text
       });
 
-      const url = response.data.url;
+      const url = response.data.audio_url;
       console.log('Generated audio URL:', url);
-      setAudioUrl(url);
       return url;
     } catch (error) {
       console.error('Error generating speech:', error);
