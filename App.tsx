@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import axios from 'axios';
 import { Audio } from 'expo-av';
 
-interface SecretScript {
-  text: string;
-}
-
+// Import your secret scripts data (assuming it's structured properly)
 import secretScriptsData from './assets/secret_scripts.json';
+
+// Import the audio files mapping
+import audioFiles from './audioFiles';
 
 const DEFAULT_TEXT_SIZE = 18;
 
 const App = () => {
   const [number, setNumber] = useState('');
-  const [script, setScript] = useState<SecretScript>({ text: ''});
+  const [script, setScript] = useState<string>(''); // Store script text as string
   const [isPlaying, setIsPlaying] = useState(false);
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
-  const [audioUrl, setAudioUrl] = useState<string>('');
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   useEffect(() => {
@@ -31,72 +29,67 @@ const App = () => {
   const handleGetScript = async () => {
     Keyboard.dismiss();
     const num = parseInt(number, 10);
+    console.log('Entered script number:', num);
     if (num >= 1 && num <= 1232) {
-      const fetchedScript: SecretScript = secretScriptsData[num.toString() as keyof typeof secretScriptsData];
-      setScript(fetchedScript || { text: 'There is no secret here. Did you enter the correct number?'});
+      setScript(`Loading script ${num}...`);
       try {
-        const url = await generateSpeech(fetchedScript.text);
-        setAudioUrl(url);
+        const scriptData = secretScriptsData[num.toString()];
+        console.log('Fetched script data:', scriptData);
+
+        if (scriptData && scriptData.text) {
+          const scriptText = scriptData.text;
+          setScript(scriptText);
+
+          const audioFile = audioFiles[num];
+          console.log('Audio file for script:', audioFile);
+
+          if (audioFile) {
+            try {
+              const { sound } = await Audio.Sound.createAsync(audioFile);
+              setSound(sound);
+              setIsPlaying(false); // Ensure isPlaying is false initially
+            } catch (err) {
+              console.error('Error loading audio:', err);
+              setScript(scriptText + '\n\nAudio not found for this script.');
+            }
+          } else {
+            setScript(scriptText + '\n\nAudio not found for this script.');
+          }
+        } else {
+          setScript('Script not found');
+        }
       } catch (error) {
-        console.error('Error generating speech:', error);
+        console.error('Error loading or playing audio:', error);
+        setScript('Error loading or playing audio');
       }
     } else {
-      setScript({ text: 'There is no secret here. Did you enter the correct number?'});
+      setScript('Invalid script number. Please enter a number between 1 and 1232.');
     }
   };
 
-  const generateSpeech = async (text: string) => {
-    try {
-      const response = await axios.post('http://localhost:5000/tts', {
-        text: text
-      });
-
-      const url = response.data.audio_url;
-      console.log('Generated audio URL:', url);
-      return url;
-    } catch (error) {
-      console.error('Error generating speech:', error);
-      throw error;
-    }
-  };
-
-  const playSpeech = async () => {
-    if (audioUrl) {
+  const restartAudio = async () => {
+    if (sound) {
       try {
-        const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
-        setSound(sound);
+        await sound.stopAsync();
+        await sound.setPositionAsync(0);
         await sound.playAsync();
         setIsPlaying(true);
       } catch (error) {
-        console.error('Error playing speech:', error);
+        console.error('Error restarting audio:', error);
       }
-    } else {
-      console.error('No audio URL available');
     }
   };
 
   const toggleSpeech = async () => {
-    console.log('Toggle Speech called');
     if (isPlaying) {
-      console.log('Stopping speech');
       setIsPlaying(false);
       if (sound) {
-        await sound.stopAsync();
+        await sound.pauseAsync();
       }
     } else {
-      console.log('Playing speech');
       setIsPlaying(true);
-      if (script.text) {
-        try {
-          const url = await generateSpeech(script.text);
-          setAudioUrl(url);
-          await playSpeech();
-        } catch (error) {
-          console.error('Error playing speech:', error);
-          setIsPlaying(false);
-        }
-      } else {
-        console.error('No text available to speak');
+      if (sound) {
+        await sound.playAsync();
       }
     }
   };
@@ -109,7 +102,7 @@ const App = () => {
         </View>
         <View style={styles.textContainer}>
           <Text style={[styles.scriptText, { fontSize: textSize }]}>
-            {script.text}
+            {script}
           </Text>
         </View>
       </ScrollView>
@@ -124,8 +117,11 @@ const App = () => {
           <Text style={styles.textSizeButtonText}>-</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.playButton}>
-        <TouchableOpacity onPress={toggleSpeech}>
+      <View style={styles.mediaButtons}>
+        <TouchableOpacity onPress={restartAudio} style={styles.restartButton}>
+          <Icon name="refresh" size={30} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={toggleSpeech} style={styles.playButton}>
           <Icon name={isPlaying ? 'pause' : 'play'} size={30} color="black" />
         </TouchableOpacity>
       </View>
@@ -149,10 +145,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -187,18 +179,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingBottom: 20,
   },
-  inlineImage: {
-    width: 25,
-    height: 25,
-    resizeMode: 'contain',
-  },
   fontSizeControls: {
     flexDirection: 'row',
     justifyContent: 'center',
   },
   playButton: {
-    margin: 'auto',
+    paddingLeft: 30,
+  },
+  mediaButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     paddingBottom: 20,
+  },
+  restartButton: {
+    paddingRight: 30,
   },
   textSizeButtonText: {
     fontSize: 24,
