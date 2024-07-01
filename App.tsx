@@ -2,17 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Audio } from 'expo-av';
-
-// Import your secret scripts data (assuming it's structured properly)
 import secretScriptsData from './assets/secret_scripts.json';
-
-// Import the audio files mapping
 import audioFiles from './audioFiles';
 
 const DEFAULT_TEXT_SIZE = 18;
 
 const App = () => {
   const [number, setNumber] = useState('');
+  const [currentNumber, setCurrentNumber] = useState<number | null>(null); // Track the current script number
   const [script, setScript] = useState<string>(''); // Store script text as string
   const [isPlaying, setIsPlaying] = useState(false);
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
@@ -29,19 +26,18 @@ const App = () => {
   const handleGetScript = async () => {
     Keyboard.dismiss();
     const num = parseInt(number, 10);
-    console.log('Entered script number:', num);
+
     if (num >= 1 && num <= 1232) {
+      setCurrentNumber(num); // Update the current script number
       setScript(`Loading script ${num}...`);
       try {
         const scriptData = secretScriptsData[num.toString()];
-        console.log('Fetched script data:', scriptData);
 
         if (scriptData && scriptData.text) {
           const scriptText = scriptData.text;
           setScript(scriptText);
 
           const audioFile = audioFiles[num];
-          console.log('Audio file for script:', audioFile);
 
           if (audioFile) {
             try {
@@ -49,7 +45,6 @@ const App = () => {
               setSound(sound);
               setIsPlaying(false); // Ensure isPlaying is false initially
             } catch (err) {
-              console.error('Error loading audio:', err);
               setScript(scriptText + '\n\nAudio not found for this script.');
             }
           } else {
@@ -59,12 +54,14 @@ const App = () => {
           setScript('Script not found');
         }
       } catch (error) {
-        console.error('Error loading or playing audio:', error);
         setScript('Error loading or playing audio');
       }
     } else {
       setScript('Invalid script number. Please enter a number between 1 and 1232.');
     }
+
+    // Clear the input field
+    setNumber('');
   };
 
   const restartAudio = async () => {
@@ -75,7 +72,7 @@ const App = () => {
         await sound.playAsync();
         setIsPlaying(true);
       } catch (error) {
-        console.error('Error restarting audio:', error);
+        setScript('Error restarting audio');
       }
     }
   };
@@ -98,7 +95,7 @@ const App = () => {
     <View style={styles.container}>
       <ScrollView style={styles.scriptContainer}>
         <View style={styles.headerContainer}>
-          <Text style={styles.headerText}># {number}</Text>
+          <Text style={styles.headerText}># {currentNumber !== null ? currentNumber : ''}</Text>
         </View>
         <View style={styles.textContainer}>
           <Text style={[styles.scriptText, { fontSize: textSize }]}>
