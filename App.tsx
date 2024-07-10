@@ -57,7 +57,7 @@ const App = () => {
         setScript('Error loading or playing audio');
       }
     } else {
-      setScript('Invalid script number. Please enter a number between 1 and 1232.');
+      setScript('There is no secret here. Did you enter the correct number?');
     }
 
     // Clear the input field
