@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import secretScriptsData from './assets/secret_scripts.json';
 import audioFiles from './audioFiles';
 
@@ -9,8 +10,8 @@ const DEFAULT_TEXT_SIZE = 18;
 
 const App = () => {
   const [number, setNumber] = useState('');
-  const [currentNumber, setCurrentNumber] = useState<number | null>(null); // Track the current script number
-  const [script, setScript] = useState<string>(''); // Store script text as string
+  const [currentNumber, setCurrentNumber] = useState<number | null>(null);
+  const [script, setScript] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [textSize, setTextSize] = useState(DEFAULT_TEXT_SIZE);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -23,12 +24,26 @@ const App = () => {
     };
   }, [sound]);
 
+  const downloadAudioFile = async (url, filename) => {
+    const fileUri = `${FileSystem.documentDirectory}${filename}`;
+    const { exists } = await FileSystem.getInfoAsync(fileUri);
+    if (!exists) {
+      try {
+        await FileSystem.downloadAsync(url, fileUri);
+      } catch (error) {
+        console.error('Error downloading audio file:', error);
+        return null;
+      }
+    }
+    return fileUri;
+  };
+
   const handleGetScript = async () => {
     Keyboard.dismiss();
     const num = parseInt(number, 10);
 
     if (num >= 1 && num <= 1232) {
-      setCurrentNumber(num); // Update the current script number
+      setCurrentNumber(num);
       setScript(`Loading script ${num}...`);
       try {
         const scriptData = secretScriptsData[num.toString()];
@@ -37,14 +52,19 @@ const App = () => {
           const scriptText = scriptData.text;
           setScript(scriptText);
 
-          const audioFile = audioFiles[num];
-
-          if (audioFile) {
-            try {
-              const { sound } = await Audio.Sound.createAsync(audioFile);
-              setSound(sound);
-              setIsPlaying(false); // Ensure isPlaying is false initially
-            } catch (err) {
+          const audioFileUrl = audioFiles[num];
+          if (audioFileUrl) {
+            const localFileUri = await downloadAudioFile(audioFileUrl, `scripts${num}.mp3`);
+            if (localFileUri) {
+              try {
+                const { sound } = await Audio.Sound.createAsync({ uri: localFileUri });
+                setSound(sound);
+                setIsPlaying(false);
+              } catch (err) {
+                console.error('Error loading audio:', err);
+                setScript(scriptText + '\n\nError loading audio for this script.');
+              }
+            } else {
               setScript(scriptText + '\n\nAudio not found for this script.');
             }
           } else {
@@ -54,13 +74,13 @@ const App = () => {
           setScript('Script not found');
         }
       } catch (error) {
+        console.error('Error handling script:', error);
         setScript('Error loading or playing audio');
       }
     } else {
       setScript('There is no secret here. Did you enter the correct number?');
     }
 
-    // Clear the input field
     setNumber('');
   };
 
@@ -72,6 +92,7 @@ const App = () => {
         await sound.playAsync();
         setIsPlaying(true);
       } catch (error) {
+        console.error('Error restarting audio:', error);
         setScript('Error restarting audio');
       }
     }
